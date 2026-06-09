@@ -3,7 +3,7 @@
 An interactive, research-backed visualization of a linear support vector
 machine that predicts 2021 NBA player positions from per-game statistics.
 
-**Live site:** https://usamahmoin.github.io/Data-Mining-2/
+**Live site:** https://usamahmoin.github.io/NBA-Position-Classifier/
 
 ## What the project shows
 
