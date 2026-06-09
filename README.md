@@ -1,24 +1,45 @@
-# Data Mining Programming Assignment - 2
+# NBA Position Classifier
 
-## Overview
+An interactive, research-backed visualization of a linear support vector
+machine that predicts 2021 NBA player positions from per-game statistics.
 
-This project is a Data Mining assignment focused on building a machine learning model to classify NBA players' positions based on their performance statistics. The project involves data preprocessing, feature selection, handling class imbalance, training a model, and evaluating its performance using various metrics.
+**Live site:** https://usamahmoin.github.io/Data-Mining-2/
 
-## Files
+## What the project shows
 
-- `Project2.py`: The main script that contains the code for data loading, preprocessing, feature selection, model training, and evaluation.
-- `nba2021.csv`: The dataset containing NBA players' statistics for the 2021 season. Ensure this file is placed in the same directory as the script.
+- A browser reproduction of the trained linear SVM's one-vs-one vote.
+- Live controls for all 12 features retained by recursive feature elimination.
+- Held-out accuracy, balanced accuracy, a confusion matrix, and per-class
+  precision/recall/F1 scores.
+- Original class counts compared with the SMOTE-balanced training set.
+- Feature importance and position-level statistical profiles.
 
-## Dependencies
+## Method
 
-The project requires the following Python libraries:
+The dataset is cleaned by keeping the combined `TOT` record for players who
+changed teams. A stratified 75/25 split is made before preprocessing. Mean
+imputation, standardization, SMOTE, recursive feature elimination, and
+hyperparameter tuning are fit on training data only. The untouched test split
+is used once for the reported final evaluation.
 
-- numpy
-- pandas
-- scikit-learn
-- imbalanced-learn
+This order matters: applying scaling or SMOTE before the split would allow
+information from the test set to influence training and produce an optimistic
+evaluation.
 
-You can install these dependencies using the following command:
+## Run locally
 
 ```bash
-pip install numpy pandas scikit-learn imbalanced-learn
+python3 -m pip install -r requirements.txt
+python3 Project2.py
+python3 -m http.server 8000
+```
+
+Then open `http://localhost:8000`.
+
+## Rebuild the browser model
+
+```bash
+python3 tools/train_model.py
+```
+
+This regenerates `model-artifact.json` from `nba2021.csv`.

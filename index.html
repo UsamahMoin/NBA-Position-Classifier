@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An interactive, research-backed NBA position classifier built with recursive feature elimination, SMOTE, and a linear support vector machine.">
+  <title>NBA Position Classifier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="page-shell">
+    <section class="hero">
+      <p class="eyebrow">Applied machine learning &middot; 2021 NBA season</p>
+      <h1>Can a stat line reveal a player's position?</h1>
+      <p class="hero-copy">Explore a linear support vector machine trained on 481 unique player records. Change a real player's per-game statistics and watch ten pairwise classifiers decide whether the profile looks like a center, forward, or guard.</p>
+      <div class="hero-facts" aria-label="Dataset summary">
+        <div><strong id="player-count">481</strong><span>unique players</span></div>
+        <div><strong id="feature-count">12</strong><span>selected statistics</span></div>
+        <div><strong id="test-accuracy">50.4%</strong><span>held-out accuracy</span></div>
+        <div><strong>20.0%</strong><span>uniform baseline</span></div>
+      </div>
+    </section>
+
+    <section class="section-block" aria-labelledby="classifier-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Live model</p>
+          <h2 id="classifier-title">Change the evidence. Move the decision.</h2>
+        </div>
+        <p>The browser uses the fitted scaler and all ten exported SVM hyperplanes. This is the trained model, not a visual approximation.</p>
+      </div>
+
+      <div class="workbench">
+        <div class="panel controls-panel">
+          <div class="picker-wrap">
+            <label id="player-picker-label">Start with a 2021 player</label>
+            <button class="player-picker" id="player-picker" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="player-picker-label selected-player">
+              <span>
+                <strong id="selected-player">Loading players...</strong>
+                <small id="selected-team">Please wait</small>
+              </span>
+              <svg aria-hidden="true" viewBox="0 0 20 20"><path d="m5 7.5 5 5 5-5"/></svg>
+            </button>
+            <div class="picker-menu" id="picker-menu" hidden>
+              <label class="search-field">
+                <span class="sr-only">Search players</span>
+                <svg aria-hidden="true" viewBox="0 0 20 20"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg>
+                <input id="player-search" type="search" autocomplete="off" placeholder="Search by player or team">
+              </label>
+              <div class="player-options" id="player-options" role="listbox" aria-label="NBA players"></div>
+            </div>
+          </div>
+
+          <div class="control-heading">
+            <div>
+              <h3>Selected statistics</h3>
+              <p>Per-game values unless marked as a percentage.</p>
+            </div>
+            <button class="text-button" id="reset-player" type="button">Reset values</button>
+          </div>
+          <div class="slider-grid" id="slider-grid"></div>
+        </div>
+
+        <aside class="panel result-panel" aria-live="polite">
+          <p class="eyebrow">Model decision</p>
+          <div class="decision">
+            <div class="position-orb" id="predicted-position">-</div>
+            <div>
+              <p class="decision-label">Predicted position</p>
+              <h3 id="predicted-name">Loading model</h3>
+              <p id="decision-summary">Preparing the classifier artifact.</p>
+            </div>
+          </div>
+          <div class="actual-row">
+            <span>Roster position</span>
+            <strong id="actual-position">-</strong>
+          </div>
+          <div class="vote-chart" id="vote-chart" aria-label="Pairwise SVM votes"></div>
+          <p class="model-note"><strong>How the vote works:</strong> five position classes create ten one-vs-one decisions. Each decision gives one vote; the class with the most votes wins. Ties follow the model's fixed class order.</p>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section-block" aria-labelledby="evidence-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Held-out evidence</p>
+          <h2 id="evidence-title">Useful signal, with real ambiguity.</h2>
+        </div>
+        <p>Modern positions overlap. The model separates centers and point guards more reliably than the hybrid forward and wing roles in between.</p>
+      </div>
+
+      <div class="metric-grid">
+        <article class="metric-card">
+          <span>Test accuracy</span>
+          <strong id="metric-test">-</strong>
+          <p>Correct calls on 121 untouched players.</p>
+        </article>
+        <article class="metric-card">
+          <span>Balanced accuracy</span>
+          <strong id="metric-balanced">-</strong>
+          <p>Average recall across all five positions.</p>
+        </article>
+        <article class="metric-card">
+          <span>Cross-validation</span>
+          <strong id="metric-cv">-</strong>
+          <p>Best mean balanced accuracy during tuning.</p>
+        </article>
+        <article class="metric-card">
+          <span>Training accuracy</span>
+          <strong id="metric-training">-</strong>
+          <p>A gap here indicates remaining overfit.</p>
+        </article>
+      </div>
+
+      <div class="evidence-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Confusion matrix</p>
+              <h3>Where predictions cross roles</h3>
+            </div>
+            <p>Rows are actual positions. Columns are predicted positions.</p>
+          </div>
+          <div class="matrix-wrap">
+            <div class="confusion-matrix" id="confusion-matrix"></div>
+          </div>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Per-position quality</p>
+              <h3>Precision, recall, and F1</h3>
+            </div>
+            <p>F1 balances how often a label is right with how often it is found.</p>
+          </div>
+          <div class="class-report" id="class-report"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block" aria-labelledby="inside-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Inside the pipeline</p>
+          <h2 id="inside-title">Balance classes. Keep the useful statistics.</h2>
+        </div>
+        <p>Only the training split is imputed, scaled, oversampled, selected, and tuned. The test split stays untouched until final evaluation.</p>
+      </div>
+
+      <div class="evidence-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">SMOTE on training data</p>
+              <h3>Class counts before and after</h3>
+            </div>
+            <div class="legend">
+              <span><i class="legend-dot original"></i>Before</span>
+              <span><i class="legend-dot synthetic"></i>After</span>
+            </div>
+          </div>
+          <div class="balance-chart" id="balance-chart"></div>
+          <p class="chart-footnote">Synthetic samples exist only inside the training set. No generated player is evaluated as test evidence.</p>
+        </article>
+
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Retained by RFECV</p>
+              <h3>Feature importance</h3>
+            </div>
+            <p>Random-forest importance helps describe the selected set; the final classifier remains linear SVM.</p>
+          </div>
+          <div class="importance-chart" id="importance-chart"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-block" aria-labelledby="profiles-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Position profiles</p>
+          <h2 id="profiles-title">Different roles leave different statistical shapes.</h2>
+        </div>
+        <p>These are observed means from the cleaned dataset, normalized within each statistic so unlike units can share one view.</p>
+      </div>
+      <div class="panel profile-panel">
+        <div class="position-tabs" id="position-tabs" role="tablist" aria-label="Position profile"></div>
+        <div class="profile-content">
+          <div>
+            <span class="profile-code" id="profile-code">C</span>
+            <h3 id="profile-name">Center</h3>
+            <p id="profile-copy">Interior scoring, rebounding, and rim protection tend to define the center profile.</p>
+          </div>
+          <div class="profile-chart" id="profile-chart"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section-block" aria-labelledby="method-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Reproducible method</p>
+          <h2 id="method-title">A leakage-safe path from rows to decisions.</h2>
+        </div>
+        <p>The original assignment's model family is preserved, while preprocessing order is corrected so test information cannot influence training.</p>
+      </div>
+      <div class="pipeline">
+        <article><span>01</span><h3>Clean</h3><p>Keep one combined <code>TOT</code> row for traded players and repair undefined shooting percentages.</p></article>
+        <article><span>02</span><h3>Split</h3><p>Reserve a stratified 25% test set before learning any preprocessing parameters.</p></article>
+        <article><span>03</span><h3>Transform</h3><p>Fit mean imputation and standardization on training rows, then transform the test rows.</p></article>
+        <article><span>04</span><h3>Balance</h3><p>Use SMOTE only on transformed training data to bring each position to 88 examples.</p></article>
+        <article><span>05</span><h3>Select</h3><p>Use five-fold RFECV with balanced accuracy to retain 12 of 26 numeric features.</p></article>
+        <article><span>06</span><h3>Classify</h3><p>Tune a linear SVM with stratified folds, then evaluate once on the untouched test set.</p></article>
+      </div>
+    </section>
+
+    <section class="section-block research" aria-labelledby="research-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Research foundation</p>
+          <h2 id="research-title">The page is tied to the methods it uses.</h2>
+        </div>
+        <p>Primary papers provide the basis for synthetic oversampling, maximum-margin classification, and recursive feature elimination.</p>
+      </div>
+      <div class="source-grid">
+        <a href="https://doi.org/10.1613/jair.953" target="_blank" rel="noreferrer">
+          <span>Chawla et al. &middot; 2002</span>
+          <h3>SMOTE: Synthetic Minority Over-sampling Technique</h3>
+          <p>Generates minority-class examples by interpolating between neighboring observations.</p>
+          <strong>Journal of Artificial Intelligence Research &#8599;</strong>
+        </a>
+        <a href="https://doi.org/10.1007/BF00994018" target="_blank" rel="noreferrer">
+          <span>Cortes &amp; Vapnik &middot; 1995</span>
+          <h3>Support-Vector Networks</h3>
+          <p>Introduces the soft-margin support vector approach used for non-separable classification.</p>
+          <strong>Machine Learning &#8599;</strong>
+        </a>
+        <a href="https://doi.org/10.1023/A:1012487302797" target="_blank" rel="noreferrer">
+          <span>Guyon et al. &middot; 2002</span>
+          <h3>Gene Selection Using Support Vector Machines</h3>
+          <p>Establishes recursive feature elimination as a way to retain a compact discriminative feature set.</p>
+          <strong>Machine Learning &#8599;</strong>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>NBA Position Classifier &middot; Data Mining Project</p>
+    <a href="https://github.com/UsamahMoin/Data-Mining-2" target="_blank" rel="noreferrer">View repository &#8599;</a>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
